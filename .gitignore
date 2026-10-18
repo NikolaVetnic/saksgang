@@ -1,0 +1,23 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+
+# Node
+node_modules/
+dist/
+
+# OS
+.DS_Store
+
+# Local environment
+.env
+*.local
