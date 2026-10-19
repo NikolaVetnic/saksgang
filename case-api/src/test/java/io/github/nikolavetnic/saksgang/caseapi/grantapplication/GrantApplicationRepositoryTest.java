@@ -11,6 +11,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @DataJpaTest
@@ -97,6 +98,25 @@ class GrantApplicationRepositoryTest {
 						tuple(GrantApplicationStatus.IN_REVIEW, "Tildelt saksbehandler"),
 						tuple(GrantApplicationStatus.REJECTED, "Formålet faller utenfor ordningen"));
 		assertThat(found.getStatusHistory()).allSatisfy(change -> assertThat(change.getChangedAt()).isNotNull());
+	}
+
+	@Test
+	void findsApplicationsByStatusOnePageAtATime() {
+		// given
+		for (int i = 0; i < 3; i++) {
+			repository.save(newApplication("123456785"));
+		}
+		var inReview = newApplication("123456785");
+		inReview.changeStatus(GrantApplicationStatus.IN_REVIEW, "Tildelt saksbehandler");
+		repository.saveAndFlush(inReview);
+
+		// when
+		var firstPage = repository.findByStatus(GrantApplicationStatus.RECEIVED, PageRequest.of(0, 2));
+
+		// then
+		assertThat(firstPage.getContent()).hasSize(2)
+				.allSatisfy(application -> assertThat(application.getStatus()).isEqualTo(GrantApplicationStatus.RECEIVED));
+		assertThat(firstPage.getTotalElements()).isEqualTo(3);
 	}
 
 	@Test
