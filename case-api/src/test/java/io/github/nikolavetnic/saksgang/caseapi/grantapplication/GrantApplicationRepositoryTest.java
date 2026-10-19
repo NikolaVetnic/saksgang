@@ -2,6 +2,7 @@ package io.github.nikolavetnic.saksgang.caseapi.grantapplication;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.tuple;
 
 import io.github.nikolavetnic.saksgang.caseapi.TestcontainersConfiguration;
 import org.junit.jupiter.api.Test;
@@ -73,6 +74,29 @@ class GrantApplicationRepositoryTest {
 		assertThat(found.getNotes())
 				.extracting(CaseNote::getText)
 				.containsExactly("Mangler budsjett, kontakter søker.", "Budsjett mottatt på e-post.");
+	}
+
+	@Test
+	void savesStatusHistoryInChronologicalOrder() {
+		// given
+		var application = repository.saveAndFlush(newApplication("123456785"));
+		application.changeStatus(GrantApplicationStatus.IN_REVIEW, "Tildelt saksbehandler");
+		repository.saveAndFlush(application);
+		application.changeStatus(GrantApplicationStatus.REJECTED, "Formålet faller utenfor ordningen");
+
+		// when
+		repository.saveAndFlush(application);
+		entityManager.clear();
+
+		// then
+		var found = repository.findById(application.getId()).orElseThrow();
+		assertThat(found.getStatus()).isEqualTo(GrantApplicationStatus.REJECTED);
+		assertThat(found.getStatusHistory())
+				.extracting(StatusChange::getToStatus, StatusChange::getReason)
+				.containsExactly(
+						tuple(GrantApplicationStatus.IN_REVIEW, "Tildelt saksbehandler"),
+						tuple(GrantApplicationStatus.REJECTED, "Formålet faller utenfor ordningen"));
+		assertThat(found.getStatusHistory()).allSatisfy(change -> assertThat(change.getChangedAt()).isNotNull());
 	}
 
 	@Test
