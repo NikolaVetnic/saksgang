@@ -66,6 +66,14 @@ public class GrantApplication {
 		this.status = GrantApplicationStatus.RECEIVED;
 	}
 
+	public void changeStatus(GrantApplicationStatus newStatus, String reason) {
+		if (!status.canTransitionTo(newStatus)) {
+			throw new InvalidStatusTransitionException(status, newStatus);
+		}
+		statusHistory.add(new StatusChange(this, status, newStatus, reason));
+		status = newStatus;
+	}
+
 	public CaseNote addNote(String text) {
 		var note = new CaseNote(this, text);
 		notes.add(note);
