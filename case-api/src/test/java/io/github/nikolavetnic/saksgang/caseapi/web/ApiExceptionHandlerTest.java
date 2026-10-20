@@ -2,11 +2,14 @@ package io.github.nikolavetnic.saksgang.caseapi.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import io.github.nikolavetnic.saksgang.caseapi.grantapplication.GrantApplication;
 import io.github.nikolavetnic.saksgang.caseapi.grantapplication.GrantApplicationNotFoundException;
 import io.github.nikolavetnic.saksgang.caseapi.grantapplication.GrantApplicationService;
+import io.github.nikolavetnic.saksgang.caseapi.grantapplication.GrantApplicationStatus;
+import io.github.nikolavetnic.saksgang.caseapi.grantapplication.InvalidStatusTransitionException;
 import io.github.nikolavetnic.saksgang.caseapi.organization.DeletedOrganizationException;
 import io.github.nikolavetnic.saksgang.caseapi.organization.Organization;
 import io.github.nikolavetnic.saksgang.caseapi.organization.OrganizationRegistryUnavailableException;
@@ -113,6 +116,29 @@ class ApiExceptionHandlerTest {
 		assertProblem(result, HttpStatus.NOT_FOUND, "Grant application not found");
 		assertThat(result).bodyJson().extractingPath("$.detail")
 				.isEqualTo("Grant application 0199f3a2-5c1e-7b3d-9a4f-2e8c6d1b0a77 does not exist");
+	}
+
+	@Test
+	void invalidStatusTransitionGivesConflictWithCurrentAndAllowedStatuses() {
+		// given
+		var id = UUID.fromString("0199f3a2-5c1e-7b3d-9a4f-2e8c6d1b0a77");
+		when(service.changeStatus(eq(id), any())).thenThrow(new InvalidStatusTransitionException(
+				GrantApplicationStatus.RECEIVED, GrantApplicationStatus.APPROVED));
+
+		// when
+		var result = mvc.post().uri("/api/grant-applications/{id}/status", id)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "status": "APPROVED", "reason": "Hopper over behandling" }
+						""")
+				.exchange();
+
+		// then
+		assertProblem(result, HttpStatus.CONFLICT, "Invalid status transition");
+		assertThat(result).bodyJson().extractingPath("$.detail")
+				.isEqualTo("Cannot change status from RECEIVED to APPROVED");
+		assertThat(result).bodyJson().extractingPath("$.currentStatus").isEqualTo("RECEIVED");
+		assertThat(result).bodyJson().extractingPath("$.allowedStatuses").asArray().containsExactly("IN_REVIEW");
 	}
 
 	@Test

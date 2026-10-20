@@ -127,6 +127,74 @@ class GrantApplicationControllerTest {
 		assertThat(result).bodyJson().extractingPath("$.statusHistory[0].reason").isEqualTo("Tildelt saksbehandler");
 	}
 
+	@Test
+	void changeStatusReturnsUpdatedApplication() {
+		// given
+		when(service.changeStatus(eq(ID), any())).thenReturn(details(GrantApplicationStatus.IN_REVIEW));
+
+		// when
+		var result = mvc.post().uri("/api/grant-applications/{id}/status", ID)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "status": "IN_REVIEW", "reason": "Tildelt saksbehandler" }
+						""")
+				.exchange();
+
+		// then
+		assertThat(result).hasStatusOk();
+		assertThat(result).bodyJson().extractingPath("$.status").isEqualTo("IN_REVIEW");
+		verify(service).changeStatus(ID, new ChangeStatusRequest(GrantApplicationStatus.IN_REVIEW,
+				"Tildelt saksbehandler"));
+	}
+
+	@Test
+	void changeStatusRequiresReason() {
+		var result = mvc.post().uri("/api/grant-applications/{id}/status", ID)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "status": "IN_REVIEW" }
+						""")
+				.exchange();
+
+		assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+		assertThat(result).bodyJson().extractingPath("$.errors.reason").asArray().isNotEmpty();
+		verifyNoInteractions(service);
+	}
+
+	@Test
+	void addNoteReturns201WithTheNote() {
+		// given
+		var noteId = UUID.fromString("0199f3a2-6d2f-7c4e-8b5a-3f9d7e2c1b88");
+		when(service.addNote(ID, new AddNoteRequest("Ringte søker, budsjett kommer.")))
+				.thenReturn(new GrantApplicationDetails.NoteEntry(noteId, "Ringte søker, budsjett kommer.", CREATED_AT));
+
+		// when
+		var result = mvc.post().uri("/api/grant-applications/{id}/notes", ID)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "text": "Ringte søker, budsjett kommer." }
+						""")
+				.exchange();
+
+		// then
+		assertThat(result).hasStatus(HttpStatus.CREATED);
+		assertThat(result).bodyJson().extractingPath("$.id").isEqualTo(noteId.toString());
+		assertThat(result).bodyJson().extractingPath("$.text").isEqualTo("Ringte søker, budsjett kommer.");
+	}
+
+	@Test
+	void addNoteRejectsBlankText() {
+		var result = mvc.post().uri("/api/grant-applications/{id}/notes", ID)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "text": "  " }
+						""")
+				.exchange();
+
+		assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+		verifyNoInteractions(service);
+	}
+
 	private static GrantApplicationDetails details(GrantApplicationStatus status) {
 		var history = status == GrantApplicationStatus.RECEIVED
 				? List.<GrantApplicationDetails.StatusChangeEntry>of()
