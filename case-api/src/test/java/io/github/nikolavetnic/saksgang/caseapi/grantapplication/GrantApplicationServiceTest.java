@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +27,8 @@ class GrantApplicationServiceTest {
 
 	private static final CreateGrantApplicationRequest REQUEST = new CreateGrantApplicationRequest(
 			"974760673", "Ola Nordmann", "ola.nordmann@example.com", 25_000, "Nye drakter til barnelaget");
+
+	private static final UUID EXISTING_ID = UUID.fromString("0199f3a2-5c1e-7b3d-9a4f-2e8c6d1b0a77");
 
 	@Mock
 	private GrantApplicationRepository repository;
@@ -80,6 +84,61 @@ class GrantApplicationServiceTest {
 	}
 
 	@Test
+	void changeStatusUpdatesStatusAndRecordsReason() {
+		// given
+		existingApplication();
+
+		// when
+		var updated = service.changeStatus(EXISTING_ID,
+				new ChangeStatusRequest(GrantApplicationStatus.IN_REVIEW, "Tildelt saksbehandler"));
+
+		// then
+		assertThat(updated.status()).isEqualTo(GrantApplicationStatus.IN_REVIEW);
+		assertThat(updated.statusHistory()).singleElement().satisfies(entry -> {
+			assertThat(entry.fromStatus()).isEqualTo(GrantApplicationStatus.RECEIVED);
+			assertThat(entry.reason()).isEqualTo("Tildelt saksbehandler");
+		});
+		verify(repository).flush();
+	}
+
+	@Test
+	void changeStatusLetsInvalidTransitionThrough() {
+		// given
+		existingApplication();
+
+		// when / then
+		assertThatExceptionOfType(InvalidStatusTransitionException.class)
+				.isThrownBy(() -> service.changeStatus(EXISTING_ID,
+						new ChangeStatusRequest(GrantApplicationStatus.APPROVED, "Hopper over behandling")));
+		verify(repository, never()).flush();
+	}
+
+	@Test
+	void addNoteAddsNoteToApplication() {
+		// given
+		var application = existingApplication();
+
+		// when
+		var note = service.addNote(EXISTING_ID, new AddNoteRequest("Ringte søker, budsjett kommer."));
+
+		// then
+		assertThat(note.text()).isEqualTo("Ringte søker, budsjett kommer.");
+		assertThat(application.getNotes()).extracting(CaseNote::getText)
+				.containsExactly("Ringte søker, budsjett kommer.");
+	}
+
+	@Test
+	void addNoteThrowsNotFoundForUnknownId() {
+		// given
+		var id = UUID.randomUUID();
+		when(repository.findById(id)).thenReturn(Optional.empty());
+
+		// when / then
+		assertThatExceptionOfType(GrantApplicationNotFoundException.class)
+				.isThrownBy(() -> service.addNote(id, new AddNoteRequest("Notat")));
+	}
+
+	@Test
 	void getThrowsNotFoundForUnknownId() {
 		// given
 		var id = UUID.randomUUID();
@@ -88,6 +147,13 @@ class GrantApplicationServiceTest {
 		// when / then
 		assertThatExceptionOfType(GrantApplicationNotFoundException.class)
 				.isThrownBy(() -> service.get(id));
+	}
+
+	private GrantApplication existingApplication() {
+		var application = new GrantApplication("974760673", "REGISTERENHETEN I BRØNNØYSUND", "Ola Nordmann",
+				"ola.nordmann@example.com", 25_000, "Nye drakter til barnelaget");
+		when(repository.findById(EXISTING_ID)).thenReturn(Optional.of(application));
+		return application;
 	}
 
 }

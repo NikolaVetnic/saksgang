@@ -26,6 +26,11 @@ public record GrantApplicationDetails(
 	}
 
 	public record NoteEntry(UUID id, String text, Instant createdAt) {
+
+		static NoteEntry from(CaseNote note) {
+			return new NoteEntry(note.getId(), note.getText(), note.getCreatedAt());
+		}
+
 	}
 
 	static GrantApplicationDetails from(GrantApplication application) {
@@ -45,7 +50,7 @@ public record GrantApplicationDetails(
 								change.getReason(), change.getChangedAt()))
 						.toList(),
 				application.getNotes().stream()
-						.map(note -> new NoteEntry(note.getId(), note.getText(), note.getCreatedAt()))
+						.map(NoteEntry::from)
 						.toList());
 	}
 

@@ -38,6 +38,24 @@ public class GrantApplicationService {
 		return GrantApplicationDetails.from(repository.saveAndFlush(application));
 	}
 
+	@Transactional
+	public GrantApplicationDetails changeStatus(UUID id, ChangeStatusRequest request) {
+		var application = findOrThrow(id);
+		application.changeStatus(request.status(), request.reason());
+		// The application is already managed, so flushing is enough to insert the new history entry.
+		// Calling save() would merge it and map a copy of the entry instead of the one we created.
+		repository.flush();
+		return GrantApplicationDetails.from(application);
+	}
+
+	@Transactional
+	public GrantApplicationDetails.NoteEntry addNote(UUID id, AddNoteRequest request) {
+		var application = findOrThrow(id);
+		var note = application.addNote(request.text());
+		repository.flush();
+		return GrantApplicationDetails.NoteEntry.from(note);
+	}
+
 	@Transactional(readOnly = true)
 	public Page<GrantApplicationSummary> list(GrantApplicationStatus status, Pageable pageable) {
 		var applications = status == null
@@ -48,9 +66,11 @@ public class GrantApplicationService {
 
 	@Transactional(readOnly = true)
 	public GrantApplicationDetails get(UUID id) {
-		return repository.findById(id)
-				.map(GrantApplicationDetails::from)
-				.orElseThrow(() -> new GrantApplicationNotFoundException(id));
+		return GrantApplicationDetails.from(findOrThrow(id));
+	}
+
+	private GrantApplication findOrThrow(UUID id) {
+		return repository.findById(id).orElseThrow(() -> new GrantApplicationNotFoundException(id));
 	}
 
 }
