@@ -56,7 +56,8 @@ class GrantApplicationControllerTest {
 
 		// then
 		assertThat(result).hasStatus(HttpStatus.CREATED)
-				.hasHeader("Location", "http://localhost/api/grant-applications/" + ID);
+				.hasHeader("Location", "http://localhost/api/grant-applications/" + ID)
+				.hasHeader("ETag", "\"0\"");
 		assertThat(result).bodyJson().extractingPath("$.organizationName").isEqualTo("REGISTERENHETEN I BRØNNØYSUND");
 		assertThat(result).bodyJson().extractingPath("$.status").isEqualTo("RECEIVED");
 	}
@@ -128,12 +129,25 @@ class GrantApplicationControllerTest {
 	}
 
 	@Test
-	void changeStatusReturnsUpdatedApplication() {
+	void getReturnsVersionAsETag() {
 		// given
-		when(service.changeStatus(eq(ID), any())).thenReturn(details(GrantApplicationStatus.IN_REVIEW));
+		when(service.get(ID)).thenReturn(details(GrantApplicationStatus.IN_REVIEW));
+
+		// when
+		var result = mvc.get().uri("/api/grant-applications/{id}", ID).exchange();
+
+		// then
+		assertThat(result).hasStatusOk().hasHeader("ETag", "\"1\"");
+	}
+
+	@Test
+	void changeStatusPassesVersionFromIfMatchAndReturnsNewETag() {
+		// given
+		when(service.changeStatus(eq(ID), eq(0L), any())).thenReturn(details(GrantApplicationStatus.IN_REVIEW));
 
 		// when
 		var result = mvc.post().uri("/api/grant-applications/{id}/status", ID)
+				.header("If-Match", "\"0\"")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{ "status": "IN_REVIEW", "reason": "Tildelt saksbehandler" }
@@ -141,15 +155,43 @@ class GrantApplicationControllerTest {
 				.exchange();
 
 		// then
-		assertThat(result).hasStatusOk();
+		assertThat(result).hasStatusOk().hasHeader("ETag", "\"1\"");
 		assertThat(result).bodyJson().extractingPath("$.status").isEqualTo("IN_REVIEW");
-		verify(service).changeStatus(ID, new ChangeStatusRequest(GrantApplicationStatus.IN_REVIEW,
+		verify(service).changeStatus(ID, 0L, new ChangeStatusRequest(GrantApplicationStatus.IN_REVIEW,
 				"Tildelt saksbehandler"));
+	}
+
+	@Test
+	void changeStatusRequiresIfMatch() {
+		var result = mvc.post().uri("/api/grant-applications/{id}/status", ID)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "status": "IN_REVIEW", "reason": "Tildelt saksbehandler" }
+						""")
+				.exchange();
+
+		assertThat(result).hasStatus(HttpStatus.PRECONDITION_REQUIRED);
+		verifyNoInteractions(service);
+	}
+
+	@Test
+	void changeStatusRejectsIfMatchThatIsNotAVersion() {
+		var result = mvc.post().uri("/api/grant-applications/{id}/status", ID)
+				.header("If-Match", "W/\"0\"")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "status": "IN_REVIEW", "reason": "Tildelt saksbehandler" }
+						""")
+				.exchange();
+
+		assertThat(result).hasStatus(HttpStatus.PRECONDITION_FAILED);
+		verifyNoInteractions(service);
 	}
 
 	@Test
 	void changeStatusRequiresReason() {
 		var result = mvc.post().uri("/api/grant-applications/{id}/status", ID)
+				.header("If-Match", "\"0\"")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{ "status": "IN_REVIEW" }
@@ -200,9 +242,10 @@ class GrantApplicationControllerTest {
 				? List.<GrantApplicationDetails.StatusChangeEntry>of()
 				: List.of(new GrantApplicationDetails.StatusChangeEntry(GrantApplicationStatus.RECEIVED, status,
 						"Tildelt saksbehandler", CREATED_AT));
+		// Each status change bumps the version, so it equals the number of history entries here
 		return new GrantApplicationDetails(ID, "974760673", "REGISTERENHETEN I BRØNNØYSUND", "Ola Nordmann",
 				"ola.nordmann@example.com", 25_000, "Nye drakter til barnelaget", status, CREATED_AT, CREATED_AT,
-				history, List.of());
+				history.size(), history, List.of());
 	}
 
 }

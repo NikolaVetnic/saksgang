@@ -38,9 +38,15 @@ public class GrantApplicationService {
 		return GrantApplicationDetails.from(repository.saveAndFlush(application));
 	}
 
+	/**
+	 * @param expectedVersion the version the client based its decision on, taken from the ETag
+	 */
 	@Transactional
-	public GrantApplicationDetails changeStatus(UUID id, ChangeStatusRequest request) {
+	public GrantApplicationDetails changeStatus(UUID id, long expectedVersion, ChangeStatusRequest request) {
 		var application = findOrThrow(id);
+		if (application.getVersion() != expectedVersion) {
+			throw new GrantApplicationModifiedException(id, expectedVersion, application.getVersion());
+		}
 		application.changeStatus(request.status(), request.reason());
 		// The application is already managed, so flushing is enough to insert the new history entry.
 		// Calling save() would merge it and map a copy of the entry instead of the one we created.

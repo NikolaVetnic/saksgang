@@ -52,12 +52,25 @@ class GrantApplicationServicePersistenceTest {
 		var application = service.create(newRequest());
 
 		// when
-		var updated = service.changeStatus(application.id(),
+		var updated = service.changeStatus(application.id(), application.version(),
 				new ChangeStatusRequest(GrantApplicationStatus.IN_REVIEW, "Tildelt saksbehandler"));
 
 		// then
 		assertThat(updated.statusHistory()).singleElement()
 				.satisfies(entry -> assertThat(entry.changedAt()).isNotNull());
+		assertThat(updated.version()).isEqualTo(application.version() + 1);
+	}
+
+	@Test
+	void addingNoteDoesNotChangeVersion() {
+		// given
+		var application = service.create(newRequest());
+
+		// when
+		service.addNote(application.id(), new AddNoteRequest("Ringte søker, budsjett kommer."));
+
+		// then
+		assertThat(service.get(application.id()).version()).isEqualTo(application.version());
 	}
 
 	private static CreateGrantApplicationRequest newRequest() {

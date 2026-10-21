@@ -89,7 +89,7 @@ class GrantApplicationServiceTest {
 		existingApplication();
 
 		// when
-		var updated = service.changeStatus(EXISTING_ID,
+		var updated = service.changeStatus(EXISTING_ID, 0,
 				new ChangeStatusRequest(GrantApplicationStatus.IN_REVIEW, "Tildelt saksbehandler"));
 
 		// then
@@ -108,8 +108,22 @@ class GrantApplicationServiceTest {
 
 		// when / then
 		assertThatExceptionOfType(InvalidStatusTransitionException.class)
-				.isThrownBy(() -> service.changeStatus(EXISTING_ID,
+				.isThrownBy(() -> service.changeStatus(EXISTING_ID, 0,
 						new ChangeStatusRequest(GrantApplicationStatus.APPROVED, "Hopper over behandling")));
+		verify(repository, never()).flush();
+	}
+
+	@Test
+	void changeStatusRejectsOutdatedVersion() {
+		// given
+		var application = existingApplication();
+
+		// when / then
+		assertThatExceptionOfType(GrantApplicationModifiedException.class)
+				.isThrownBy(() -> service.changeStatus(EXISTING_ID, 3,
+						new ChangeStatusRequest(GrantApplicationStatus.IN_REVIEW, "Tildelt saksbehandler")))
+				.withMessageContaining("expected version 3, current version 0");
+		assertThat(application.getStatus()).isEqualTo(GrantApplicationStatus.RECEIVED);
 		verify(repository, never()).flush();
 	}
 

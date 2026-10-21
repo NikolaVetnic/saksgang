@@ -15,6 +15,7 @@ public record GrantApplicationDetails(
 		GrantApplicationStatus status,
 		Instant createdAt,
 		Instant updatedAt,
+		long version,
 		List<StatusChangeEntry> statusHistory,
 		List<NoteEntry> notes) {
 
@@ -45,6 +46,7 @@ public record GrantApplicationDetails(
 				application.getStatus(),
 				application.getCreatedAt(),
 				application.getUpdatedAt(),
+				application.getVersion(),
 				application.getStatusHistory().stream()
 						.map(change -> new StatusChangeEntry(change.getFromStatus(), change.getToStatus(),
 								change.getReason(), change.getChangedAt()))

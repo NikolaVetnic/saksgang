@@ -3,6 +3,7 @@ package io.github.nikolavetnic.saksgang.caseapi.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.nikolavetnic.saksgang.caseapi.grantapplication.GrantApplication;
+import io.github.nikolavetnic.saksgang.caseapi.grantapplication.GrantApplicationModifiedException;
 import io.github.nikolavetnic.saksgang.caseapi.grantapplication.GrantApplicationNotFoundException;
 import io.github.nikolavetnic.saksgang.caseapi.grantapplication.GrantApplicationStatus;
 import io.github.nikolavetnic.saksgang.caseapi.grantapplication.InvalidStatusTransitionException;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.data.core.TypeInformation;
 import org.springframework.http.HttpHeaders;
@@ -108,6 +110,20 @@ class ApiExceptionHandlerTest {
 	}
 
 	@Test
+	void outdatedVersionGivesPreconditionFailed() {
+		var result = mvc.get().uri("/test/throw/modified").exchange();
+
+		assertProblem(result, HttpStatus.PRECONDITION_FAILED, "Grant application has been modified");
+	}
+
+	@Test
+	void concurrentUpdateGivesPreconditionFailed() {
+		var result = mvc.get().uri("/test/throw/concurrent-update").exchange();
+
+		assertProblem(result, HttpStatus.PRECONDITION_FAILED, "Grant application has been modified");
+	}
+
+	@Test
 	void unknownOrganizationGivesUnprocessableContent() {
 		var result = mvc.get().uri("/test/throw/unknown-organization").exchange();
 
@@ -183,6 +199,16 @@ class ApiExceptionHandlerTest {
 		void invalidTransition() {
 			throw new InvalidStatusTransitionException(GrantApplicationStatus.RECEIVED,
 					GrantApplicationStatus.APPROVED);
+		}
+
+		@GetMapping("/test/throw/modified")
+		void modified() {
+			throw new GrantApplicationModifiedException(UUID.fromString("0199f3a2-5c1e-7b3d-9a4f-2e8c6d1b0a77"), 3, 4);
+		}
+
+		@GetMapping("/test/throw/concurrent-update")
+		void concurrentUpdate() {
+			throw new OptimisticLockingFailureException("Row was updated or deleted by another transaction");
 		}
 
 		@GetMapping("/test/throw/unknown-organization")

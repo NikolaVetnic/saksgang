@@ -1,5 +1,6 @@
 package io.github.nikolavetnic.saksgang.caseapi.web;
 
+import io.github.nikolavetnic.saksgang.caseapi.grantapplication.GrantApplicationModifiedException;
 import io.github.nikolavetnic.saksgang.caseapi.grantapplication.GrantApplicationNotFoundException;
 import io.github.nikolavetnic.saksgang.caseapi.grantapplication.InvalidStatusTransitionException;
 import io.github.nikolavetnic.saksgang.caseapi.organization.DeletedOrganizationException;
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -48,6 +50,20 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 		problem.setProperty("currentStatus", exception.getFrom());
 		problem.setProperty("allowedStatuses", exception.getFrom().allowedNextStatuses());
 		return problem;
+	}
+
+	@ExceptionHandler
+	ProblemDetail handleModified(GrantApplicationModifiedException exception) {
+		return problem(HttpStatus.PRECONDITION_FAILED, "Grant application has been modified", exception.getMessage());
+	}
+
+	/**
+	 * Two requests passed the version check at the same time; the database update caught the second one.
+	 */
+	@ExceptionHandler
+	ProblemDetail handleConcurrentModification(OptimisticLockingFailureException exception) {
+		return problem(HttpStatus.PRECONDITION_FAILED, "Grant application has been modified",
+				"The grant application was changed by someone else. Fetch it again and retry.");
 	}
 
 	@ExceptionHandler
