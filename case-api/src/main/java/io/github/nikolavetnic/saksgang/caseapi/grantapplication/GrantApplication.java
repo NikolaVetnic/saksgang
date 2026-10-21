@@ -9,12 +9,14 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
+import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.OptimisticLock;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
@@ -43,12 +45,17 @@ public class GrantApplication {
 	@UpdateTimestamp
 	private Instant updatedAt;
 
+	@Version
+	private long version;
+
 	@OneToMany(mappedBy = "grantApplication", cascade = CascadeType.ALL, orphanRemoval = true)
 	@OrderBy("changedAt")
 	private List<StatusChange> statusHistory = new ArrayList<>();
 
+	// Notes are only ever added, so they cannot conflict with other changes and do not bump the version
 	@OneToMany(mappedBy = "grantApplication", cascade = CascadeType.ALL, orphanRemoval = true)
 	@OrderBy("createdAt")
+	@OptimisticLock(excluded = true)
 	private List<CaseNote> notes = new ArrayList<>();
 
 	protected GrantApplication() {
@@ -118,6 +125,10 @@ public class GrantApplication {
 
 	public Instant getUpdatedAt() {
 		return updatedAt;
+	}
+
+	public long getVersion() {
+		return version;
 	}
 
 	public List<StatusChange> getStatusHistory() {
