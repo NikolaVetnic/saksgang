@@ -44,4 +44,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-reports
-          path: case-api/target/surefire-reports/
+          path: |
+            case-api/target/surefire-reports/
+            case-api/target/failsafe-reports/
