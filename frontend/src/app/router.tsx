@@ -1,9 +1,9 @@
-import { createBrowserRouter } from 'react-router'
+import { createBrowserRouter, type RouteObject } from 'react-router'
 import { HomePage } from './HomePage.tsx'
 import { Layout } from './Layout.tsx'
 import { NotFoundPage } from './NotFoundPage.tsx'
 
-export const router = createBrowserRouter([
+export const routes: RouteObject[] = [
   {
     path: '/',
     element: <Layout />,
@@ -12,4 +12,6 @@ export const router = createBrowserRouter([
       { path: '*', element: <NotFoundPage /> },
     ],
   },
-])
+]
+
+export const router = createBrowserRouter(routes)
