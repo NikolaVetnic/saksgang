@@ -135,6 +135,11 @@
 					<argLine>-javaagent:${org.mockito:mockito-core:jar} -Xshare:off</argLine>
 				</configuration>
 			</plugin>
+			<plugin>
+				<!-- Runs *IT classes in the integration-test phase of ./mvnw verify, after the unit tests -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+			</plugin>
 		</plugins>
 	</build>
 
