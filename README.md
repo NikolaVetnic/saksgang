@@ -2,7 +2,7 @@
 
 Saksgang er et søknads- og saksbehandlingssystem for tilskudd. En innbygger søker om tilskudd på vegne av en organisasjon, og en saksbehandler behandler søknaden fra mottak til vedtak.
 
-[![case-api](https://github.com/NikolaVetnic/saksgang/actions/workflows/case-api.yml/badge.svg)](https://github.com/NikolaVetnic/saksgang/actions/workflows/case-api.yml)
+[![case-api](https://github.com/NikolaVetnic/saksgang/actions/workflows/case-api.yml/badge.svg)](https://github.com/NikolaVetnic/saksgang/actions/workflows/case-api.yml) [![frontend](https://github.com/NikolaVetnic/saksgang/actions/workflows/frontend.yml/badge.svg)](https://github.com/NikolaVetnic/saksgang/actions/workflows/frontend.yml)
 
 ## Hvorfor
 
@@ -24,7 +24,7 @@ RECEIVED → IN_REVIEW → APPROVED
 | Fase | Innhold | Status |
 |---|---|---|
 | 1 | `case-api`: REST-API i Java og Spring Boot med PostgreSQL, integrasjon mot Enhetsregisteret og tester | Ferdig |
-| 2 | `frontend`: React, TypeScript og Redux Toolkit | Planlagt |
+| 2 | `frontend`: React, TypeScript og Redux Toolkit | Pågår |
 | 3 | Kafka og `notification` (Kotlin), med outbox-mønster | Planlagt |
 | 4 | Jenkins, Nexus og OpenShift | Planlagt |
 | 5 | Observerbarhet med Prometheus, Grafana og Splunk | Planlagt |
@@ -107,7 +107,7 @@ cd case-api
 ./mvnw spring-boot:run
 ```
 
-Appen starter på <http://localhost:8080>, kobler seg til den lokale PostgreSQL-databasen og slår opp organisasjoner i det ekte Enhetsregisteret.
+`case-api` starter på <http://localhost:8080>, kobler seg til den lokale PostgreSQL-databasen og slår opp organisasjoner i det ekte Enhetsregisteret.
 
 Et eksempel på en hel saksgang:
 
@@ -127,6 +127,19 @@ curl -i -X POST localhost:8080/api/grant-applications/<id>/status \
 # → 200 OK, ETag: "1"
 ```
 
+### Frontend
+
+Du trenger Node 24. Versjonen står i `frontend/.nvmrc`, så med nvm holder det med `nvm use`.
+
+```bash
+cd frontend
+nvm use
+npm ci
+npm run dev
+```
+
+Frontend starter på <http://localhost:5173>. Kall til `/api` sendes videre til `case-api` på port 8080 gjennom Vite-proxyen, så backend må kjøre samtidig.
+
 ## Tester
 
 ```bash
@@ -135,7 +148,12 @@ cd case-api
 ./mvnw verify    # alt, også integrasjonstestene (Failsafe)
 ```
 
-Testene trenger Docker, fordi PostgreSQL startes i Testcontainers. Ingen tester kaller det ekte Enhetsregisteret. Det simuleres med WireMock.
+```bash
+cd frontend
+npm test         # komponenttester (Vitest og React Testing Library)
+```
+
+Testene i `case-api` trenger Docker, fordi PostgreSQL startes i Testcontainers. Ingen tester kaller det ekte Enhetsregisteret. Det simuleres med WireMock.
 
 | Nivå | Eksempler | Verktøy |
 |---|---|---|
@@ -144,8 +162,9 @@ Testene trenger Docker, fordi PostgreSQL startes i Testcontainers. Ingen tester 
 | Database | Repositories, SQL-spørringer, samtidige endringer | `@DataJpaTest`, `@SpringBootTest`, Testcontainers |
 | Kontrakt | Klienten mot Enhetsregisteret | WireMock |
 | Integrasjon | Hele API-flyten over ekte HTTP | `RestTestClient`, Testcontainers, WireMock |
+| Komponent | Ruting og visninger i frontend | Vitest, React Testing Library |
 
-GitHub Actions kjører `./mvnw verify` på hver push og pull request. Jenkins tar over i fase 4.
+GitHub Actions bygger og tester `case-api` og `frontend` hver for seg ved hver push og pull request. Jenkins tar over i fase 4.
 
 ## Teknologi
 
@@ -154,12 +173,16 @@ GitHub Actions kjører `./mvnw verify` på hver push og pull request. Jenkins ta
 - PostgreSQL 18, Flyway
 - springdoc-openapi
 - JUnit 5, AssertJ, Mockito, Testcontainers, WireMock
+- TypeScript, React, Vite
+- Redux Toolkit med RTK Query, React Router
+- Vitest, React Testing Library, ESLint, Prettier
 
 ## Repostruktur
 
 ```
 .
 ├── case-api/            # REST-API i Java og Spring Boot (fase 1)
+├── frontend/            # React og TypeScript (fase 2)
 ├── infra/
 │   └── docker-compose.yml
 ├── docs/
@@ -168,4 +191,4 @@ GitHub Actions kjører `./mvnw verify` på hver push og pull request. Jenkins ta
 └── .github/workflows/   # CI
 ```
 
-`frontend/`, `notification/` og infrastrukturen for Jenkins, OpenShift og observerbarhet kommer i senere faser.
+`notification/` og infrastrukturen for Jenkins, OpenShift og observerbarhet kommer i senere faser.
