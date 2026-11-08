@@ -71,6 +71,8 @@ Viktige valg er dokumentert som ADR-er i [`docs/adr`](docs/adr):
 | [0004](docs/adr/0004-feature-og-lag.md) | Inndeling etter feature med lag, ikke vertical slices |
 | [0005](docs/adr/0005-problem-details-og-feilkoder.md) | Problem Details og feilkoder |
 | [0006](docs/adr/0006-optimistisk-laasing-med-etag.md) | Optimistisk låsing med ETag og `If-Match` |
+| [0007](docs/adr/0007-ingen-autentisering-i-fase-2.md) | Ingen autentisering i fase 2 |
+| [0008](docs/adr/0008-vite-proxy-rtk-query-og-react-router.md) | Vite-proxy, RTK Query og React Router |
 
 ## API
 
